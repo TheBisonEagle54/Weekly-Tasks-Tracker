@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Tasks Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: white;
+  min-height: 100vh;
+  padding: 40px;
+}
+
+h1 {
+  text-align: center;
+  font-size: 34px;
+  margin-bottom: 40px;
+}
+
+.card {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+#taskChart {
+  width: 100%;
+  height: 420px;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.input-group input {
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  width: 160px;
+  text-align: center;
+  font-weight: 600;
+}
+
+button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 12px;
+  background: #38bdf8;
+  color: black;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover { background: #0ea5e9; }
+
+.danger {
+  background: #ef4444;
+  color: white;
+}
+
+.danger:hover { background: #dc2626; }
+
+.legend {
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.legend span { margin-right: 20px; }
+
+</style>
+</head>
+<body>
+
+<h1>Weekly Tasks Tracker</h1>
+
+<div class="card">
+  <canvas id="taskChart"></canvas>
+
+  <div class="legend">
+    <span style="color:#ef4444;">● Designated Tasks</span>
+    <span style="color:#22c55e;">● Completed Tasks</span>
+  </div>
+
+  <div class="input-group">
+    <input type="number" id="designatedInput" placeholder="Designated Tasks" />
+    <input type="number" id="completedInput" placeholder="Completed Tasks" />
+    <button onclick="addWeek()">Add Week</button>
+    <button class="danger" onclick="clearAll()">Clear All</button>
+  </div>
+</div>
+
+<script>
+const MAX_WEEKS = 50;
+let weeklyData = JSON.parse(localStorage.getItem("weeklyTasks")) || [];
+
+function saveData() {
+  localStorage.setItem("weeklyTasks", JSON.stringify(weeklyData));
+}
+
+function addWeek() {
+  const designated = parseInt(document.getElementById("designatedInput").value);
+  const completed = parseInt(document.getElementById("completedInput").value);
+
+  if (isNaN(designated) || isNaN(completed)) return;
+
+  // Add beside previous week
+  weeklyData.push({ designated, completed });
+
+  // 50 week rolling limit
+  if (weeklyData.length > MAX_WEEKS) {
+    weeklyData.shift();
+  }
+
+  document.getElementById("designatedInput").value = "";
+  document.getElementById("completedInput").value = "";
+
+  saveData();
+  drawChart();
+}
+
+function clearAll() {
+  if (!confirm("Clear all weekly data?")) return;
+  weeklyData = [];
+  saveData();
+  drawChart();
+}
+
+function drawChart() {
+  const canvas = document.getElementById("taskChart");
+  const ctx = canvas.getContext("2d");
+
+  canvas.width = canvas.offsetWidth;
+  canvas.height = 420;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (weeklyData.length === 0) return;
+
+  const padding = 60;
+  const chartWidth = canvas.width - padding * 2;
+  const chartHeight = canvas.height - padding * 2;
+
+  const maxTasks = Math.max(...weeklyData.map(w => Math.max(w.designated, w.completed))) || 1;
+
+  // Y-axis grid
+  ctx.strokeStyle = "rgba(255,255,255,0.1)";
+  ctx.fillStyle = "#cbd5e1";
+  ctx.font = "14px Inter";
+
+  for (let i = 0; i <= 5; i++) {
+    const value = Math.round((i / 5) * maxTasks);
+    const y = padding + chartHeight - (i / 5) * chartHeight;
+    ctx.beginPath();
+    ctx.moveTo(padding, y);
+    ctx.lineTo(canvas.width - padding, y);
+    ctx.stroke();
+    ctx.fillText(value, 15, y + 5);
+  }
+
+  function drawLine(color, key) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+
+    weeklyData.forEach((week, index) => {
+      const x = padding + (index / (weeklyData.length - 1 || 1)) * chartWidth;
+      const y = padding + chartHeight - (week[key] / maxTasks) * chartHeight;
+
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+
+    // Draw points separately
+    weeklyData.forEach((week, index) => {
+      const x = padding + (index / (weeklyData.length - 1 || 1)) * chartWidth;
+      const y = padding + chartHeight - (week[key] / maxTasks) * chartHeight;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+  }
+
+  drawLine("#ef4444", "designated");
+  drawLine("#22c55e", "completed");
+
+  // X-axis week numbers
+  ctx.fillStyle = "#cbd5e1";
+  weeklyData.forEach((_, index) => {
+    const x = padding + (index / (weeklyData.length - 1 || 1)) * chartWidth;
+    ctx.fillText(index + 1, x - 5, canvas.height - 20);
+  });
+}
+
+window.addEventListener("resize", drawChart);
+drawChart();
+</script>
+
+</body>
+</html>
